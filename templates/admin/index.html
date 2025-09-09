@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+
+{% block title %}管理面板 - 微软邮箱批量管理系统{% endblock %}
+
+{% block content %}
+<!-- 批量添加邮箱 -->
+<div class="section">
+    <h3>批量添加邮箱</h3>
+    <form method="POST" action="{{ url_for('admin.upload_emails') }}" enctype="multipart/form-data">
+        <div class="form-group">
+            <label for="file">选择邮箱文件</label>
+            <input type="file" id="file" name="file" class="form-control" accept=".txt,.csv" required>
+            <small class="small-text">
+                支持格式：<br>
+                1. CSV格式：email,password,client_id,refresh_token<br>
+                2. 文本格式：email----password----client_id----refresh_token（每行一个）
+            </small>
+        </div>
+        <button type="submit" class="btn">上传邮箱</button>
+    </form>
+</div>
+
+<!-- 邮箱列表 -->
+<div class="section">
+    <h3>邮箱列表 ({{ emails|length }} 个)</h3>
+    {% if emails %}
+    <div class="table-responsive">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>邮箱地址</th>
+                    <th>客户端ID</th>
+                    <th>令牌状态</th>
+                    <th>过期时间</th>
+                    <th>创建时间</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in email_status_list %}
+                {% set email = item.email %}
+                {% set status = item.status %}
+                <tr>
+                    <td>{{ email.email }}</td>
+                    <td><span class="small-text">{{ email.client_id[:20] }}...</span></td>
+                    <td>
+                        {% if status == 'valid' %}
+                            <span class="status-online">有效</span>
+                        {% elif status == 'expiring_soon' %}
+                            <span class="status-warning">即将过期</span>
+                        {% elif status == 'expired' %}
+                            <span class="status-offline">已过期</span>
+                        {% else %}
+                            <span class="status-offline">未知状态</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if email.expire_time %}
+                            <span title="{{ email.expire_time.strftime('%Y-%m-%d %H:%M:%S') }}">
+                                {{ email.expire_time.strftime('%m-%d %H:%M') }}
+                            </span>
+                        {% else %}
+                            <span class="small-text">未设置</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ email.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                    <td>
+                        <div class="btn-group">
+                            <form method="POST" action="{{ url_for('admin.refresh_token', email_id=email.id) }}" 
+                                  class="inline-form">
+                                <button type="submit" class="btn btn-success btn-sm">刷新令牌</button>
+                            </form>
+                            <button type="button" class="btn btn-info btn-sm" 
+                                    onclick="window.open('/api?email={{ email.email }}', '_blank')">查看邮箱</button>
+                            <form method="POST" action="{{ url_for('admin.delete_email', email_id=email.id) }}" 
+                                  class="inline-form" onsubmit="return confirm('确定删除这个邮箱吗？')">
+                                <button type="submit" class="btn btn-danger btn-sm">删除</button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    <!-- 批量操作 -->
+    <div class="batch-actions">
+        <form method="POST" action="{{ url_for('admin.batch_refresh') }}" class="inline-form">
+            <button type="submit" class="btn btn-success">批量刷新过期令牌</button>
+        </form>
+        <form method="POST" action="{{ url_for('admin.clear_all') }}" class="inline-form" 
+              onsubmit="return confirm('确定清空所有邮箱吗？此操作不可恢复！')">
+            <button type="submit" class="btn btn-danger">清空所有邮箱</button>
+        </form>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <p>暂无邮箱数据，请上传邮箱文件。</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- 最近邮件记录 -->
+<div class="section">
+    <h3>最近邮件记录 (最新50条)</h3>
+    {% if email_records %}
+    <div class="table-responsive">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>邮箱</th>
+                    <th>发件人</th>
+                    <th>主题</th>
+                    <th>接收时间</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for record in email_records %}
+                <tr>
+                    <td>{{ record.email }}</td>
+                    <td>{{ record.sender }}</td>
+                    <td class="subject-cell">
+                        <span title="{{ record.subject }}">
+                            {{ record.subject[:50] }}{% if record.subject|length > 50 %}...{% endif %}
+                        </span>
+                    </td>
+                    <td>{{ record.received_time.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <p>暂无邮件记录。</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

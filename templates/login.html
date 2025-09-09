@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block title %}登录 - 微软邮箱批量管理系统{% endblock %}
+
+{% block content %}
+<div class="login-container">
+    <div class="login-form">
+        <h2>管理员登录</h2>
+        <p class="login-subtitle">请输入管理员凭据以访问系统</p>
+        
+        <div class="auth-info">
+            <p><strong>提示:</strong> 您需要提供Basic Auth认证信息才能访问管理面板。</p>
+            <p>请在浏览器弹出的认证对话框中输入正确的用户名和密码。</p>
+        </div>
+        
+        <div class="login-links">
+            <a href="{{ url_for('admin.index') }}" class="btn">进入管理面板</a>
+            <a href="{{ url_for('api.api_docs') }}" class="btn btn-secondary">查看API文档</a>
+        </div>
+    </div>
+</div>
+
+<style>
+.login-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 60vh;
+}
+
+.login-form {
+    background: white;
+    padding: 40px;
+    border-radius: 10px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    text-align: center;
+    max-width: 400px;
+    width: 100%;
+}
+
+.login-form h2 {
+    margin-bottom: 10px;
+    color: #2c3e50;
+}
+
+.login-subtitle {
+    color: #6c757d;
+    margin-bottom: 30px;
+}
+
+.auth-info {
+    background-color: #f8f9fa;
+    padding: 20px;
+    border-radius: 6px;
+    margin-bottom: 30px;
+    text-align: left;
+}
+
+.auth-info p {
+    margin-bottom: 10px;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.login-links {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.btn-secondary {
+    background-color: #6c757d;
+}
+
+.btn-secondary:hover {
+    background-color: #5a6268;
+}
+
+@media (max-width: 480px) {
+    .login-form {
+        padding: 20px;
+        margin: 20px;
+    }
+}
+</style>
+{% endblock %}

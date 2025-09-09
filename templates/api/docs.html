@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+
+{% block title %}API文档 - 微软邮箱批量管理系统{% endblock %}
+
+{% block content %}
+<div class="section">
+    <h3>API接口文档</h3>
+    
+    <div class="api-endpoint">
+        <h4>获取验证码</h4>
+        <div class="api-details">
+            <p><strong>URL:</strong> <code>/api?email={邮箱地址}</code></p>
+            <p><strong>方法:</strong> GET</p>
+            <p><strong>参数:</strong></p>
+            <ul>
+                <li><code>email</code> (必需): 要查询的邮箱地址</li>
+            </ul>
+            
+            <p><strong>响应示例:</strong></p>
+            <pre><code>{
+    "success": true,
+    "data": {
+        "code": "123456",
+        "sender": "noreply@tiktok.com",
+        "subject": "Your verification code",
+        "received_time": "2025-09-09 14:30:15"
+    },
+    "message": "成功获取验证码"
+}</code></pre>
+        </div>
+    </div>
+    
+    <div class="api-endpoint">
+        <h4>健康检查</h4>
+        <div class="api-details">
+            <p><strong>URL:</strong> <code>/api/health</code></p>
+            <p><strong>方法:</strong> GET</p>
+            <p><strong>说明:</strong> 检查API服务状态</p>
+            
+            <p><strong>响应示例:</strong></p>
+            <pre><code>{
+    "success": true,
+    "message": "API服务正常运行",
+    "timestamp": "2025-09-09T14:30:15.123456"
+}</code></pre>
+        </div>
+    </div>
+    
+    <div class="api-endpoint">
+        <h4>缓存状态查看</h4>
+        <div class="api-details">
+            <p><strong>URL:</strong> <code>/api/cache</code></p>
+            <p><strong>方法:</strong> GET</p>
+            <p><strong>说明:</strong> 查看当前客户端缓存状态</p>
+            
+            <p><strong>响应示例:</strong></p>
+            <pre><code>{
+    "success": true,
+    "cache_count": 2,
+    "cached_clients": [
+        {
+            "email": "test@outlook.com",
+            "remaining_seconds": 485,
+            "is_expired": false
+        }
+    ],
+    "message": "当前缓存了 2 个客户端"
+}</code></pre>
+        </div>
+    </div>
+    
+    <div class="api-endpoint">
+        <h4>清空缓存</h4>
+        <div class="api-details">
+            <p><strong>URL:</strong> <code>/api/cache/clear</code></p>
+            <p><strong>方法:</strong> POST</p>
+            <p><strong>说明:</strong> 清空所有缓存的客户端连接</p>
+            
+            <p><strong>响应示例:</strong></p>
+            <pre><code>{
+    "success": true,
+    "message": "已清空 2 个缓存的客户端"
+}</code></pre>
+        </div>
+    </div>
+    
+    <div class="alert">
+        <h4>缓存机制说明</h4>
+        <ul>
+            <li>客户端登录后会被缓存10分钟</li>
+            <li>10分钟内重复请求同一邮箱将使用缓存的客户端，避免重复登录</li>
+            <li>缓存过期后会自动清理</li>
+            <li>可以通过 <code>/api/cache</code> 查看当前缓存状态</li>
+            <li>可以通过 <code>/api/cache/clear</code> 手动清空所有缓存</li>
+        </ul>
+    </div>
+    
+    <div class="alert">
+        <h4>注意事项</h4>
+        <ul>
+            <li>只会处理来自 @tiktok.com 的邮件</li>
+            <li>只返回最近1分钟内收到的验证码</li>
+            <li>验证码提取规则支持多种格式：HTML标签、邮件主题、纯文本</li>
+            <li>所有邮件记录会保存到数据库中</li>
+        </ul>
+    </div>
+</div>
+
+<style>
+.api-endpoint {
+    margin-bottom: 30px;
+    padding: 20px;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    background-color: #f8f9fa;
+}
+
+.api-endpoint h4 {
+    margin-bottom: 15px;
+    color: #495057;
+}
+
+.api-details code {
+    background-color: #e9ecef;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: 'Courier New', monospace;
+}
+
+.api-details pre {
+    background-color: #2d3748;
+    color: #e2e8f0;
+    padding: 15px;
+    border-radius: 6px;
+    overflow-x: auto;
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+}
+
+.api-details ul {
+    margin-left: 20px;
+}
+
+.alert {
+    margin-top: 30px;
+    padding: 15px;
+    border: 1px solid #b8daff;
+    border-radius: 8px;
+    background-color: #d4edda;
+}
+
+.alert h4 {
+    margin-bottom: 10px;
+    color: #155724;
+}
+
+.alert ul {
+    margin-left: 20px;
+}
+</style>
+{% endblock %}
