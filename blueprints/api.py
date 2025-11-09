@@ -98,8 +98,8 @@ def get_verification_code():
         if not messages:
             return jsonify({
                 'success': False,
-                'message': '无法获取邮件，请检查邮箱连接'
-            }), 500
+                'message': '获取邮件失败或没有新邮件'
+            })
         
         # 处理邮件，筛选TikTok邮件并提取验证码
         result = process_email_messages(email, messages)

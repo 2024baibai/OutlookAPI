@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify, render_template, redirect, url_for, flash
+from flask import Blueprint, request, jsonify, render_template, redirect, url_for, flash, current_app
 from models import OutlookEmail, EmailRecord
 from extensions import db
 from utils import requires_auth, parse_email_file, refresh_email_token
@@ -20,28 +20,29 @@ def is_token_expired(email_obj):
     buffer_time = timedelta(minutes=5)
     return datetime.utcnow() + buffer_time >= email_obj.expire_time
 
-def refresh_single_email_token(email_id):
+def refresh_single_email_token(app, email_id):
     """刷新单个邮箱令牌的线程函数"""
     try:
-        # 在新线程中需要重新查询数据库对象
-        email = OutlookEmail.query.get(email_id)
-        if not email:
-            return {'email_id': email_id, 'success': False, 'error': '邮箱不存在'}
-        
-        # 创建新的事件循环
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        
-        try:
-            success = loop.run_until_complete(refresh_email_token(email))
-            return {
-                'email_id': email_id,
-                'email': email.email,
-                'success': success,
-                'error': None if success else '刷新失败'
-            }
-        finally:
-            loop.close()
+        with app.app_context():
+            # 在新线程中需要重新查询数据库对象
+            email = OutlookEmail.query.get(email_id)
+            if not email:
+                return {'email_id': email_id, 'success': False, 'error': '邮箱不存在'}
+            
+            # 创建新的事件循环
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            
+            try:
+                success = loop.run_until_complete(refresh_email_token(email))
+                return {
+                    'email_id': email_id,
+                    'email': email.email,
+                    'success': success,
+                    'error': None if success else '刷新失败'
+                }
+            finally:
+                loop.close()
             
     except Exception as e:
         logger.error(f"刷新邮箱令牌失败 {email_id}: {e}")
@@ -186,6 +187,9 @@ def batch_refresh():
     
     logger.info(f"开始批量刷新 {len(expired_emails)} 个过期邮箱的令牌")
     
+    # 获取当前Flask应用实例
+    app = current_app._get_current_object()
+    
     # 使用多线程刷新
     success_count = 0
     failed_count = 0
@@ -196,7 +200,7 @@ def batch_refresh():
         with ThreadPoolExecutor(max_workers=5) as executor:
             # 提交所有刷新任务
             future_to_email = {
-                executor.submit(refresh_single_email_token, email.id): email 
+                executor.submit(refresh_single_email_token, app, email.id): email 
                 for email in expired_emails
             }
             
