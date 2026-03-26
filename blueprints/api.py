@@ -1,5 +1,6 @@
 from flask import Blueprint, request, jsonify, render_template
 from datetime import datetime, timedelta
+from sqlalchemy import func
 from models import OutlookEmail
 from tools.imap_email import OutlookGraphClient
 from utils import process_email_messages
@@ -78,7 +79,7 @@ def get_verification_code():
             }), 400
         
         # 查询邮箱是否存在
-        email_obj = OutlookEmail.query.filter_by(email=email).first()
+        email_obj = OutlookEmail.query.filter(func.lower(OutlookEmail.email) == email.lower()).first()
         if not email_obj:
             return jsonify({
                 'success': False,

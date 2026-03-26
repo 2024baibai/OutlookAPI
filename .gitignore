@@ -1,3 +1,6 @@
+# Private configuration
+config.py
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -223,3 +226,4 @@ Thumbs.db
 # Project specific
 # Uncomment if you want to ignore specific config files
 # config.py
+config.py

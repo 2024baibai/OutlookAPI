@@ -244,3 +244,103 @@ def clear_all():
         flash(f'清空失败：{str(e)}', 'danger')
     
     return redirect(url_for('admin.index'))
+
+
+# ========== API 端点 ==========
+
+@admin_bp.route('/api/emails')
+@requires_auth
+def api_emails():
+    """API端点：返回邮箱列表的分页数据（JSON格式）"""
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 20, type=int)
+    
+    # 分页查询
+    pagination = OutlookEmail.query.order_by(
+        OutlookEmail.created_at.desc()
+    ).paginate(page=page, per_page=per_page, error_out=False)
+    
+    # 构建邮箱状态列表
+    email_status_list = []
+    for email in pagination.items:
+        status = 'unknown'
+        if email.expire_time:
+            now = datetime.utcnow()
+            buffer_time = timedelta(minutes=5)
+            if email.expire_time > now + buffer_time:
+                status = 'valid'
+            elif email.expire_time > now:
+                status = 'expiring_soon'
+            else:
+                status = 'expired'
+        
+        email_status_list.append({
+            'id': email.id,
+            'email': email.email,
+            'client_id': email.client_id[:20] + '...',
+            'client_id_full': email.client_id,
+            'status': status,
+            'status_text': {
+                'valid': '有效',
+                'expiring_soon': '即将过期',
+                'expired': '已过期',
+                'unknown': '未知状态'
+            }[status],
+            'expire_time': email.expire_time.strftime('%m-%d %H:%M') if email.expire_time else None,
+            'expire_time_full': email.expire_time.strftime('%Y-%m-%d %H:%M:%S') if email.expire_time else None,
+            'created_at': email.created_at.strftime('%Y-%m-%d %H:%M')
+        })
+    
+    # 返回 JSON 数据
+    return jsonify({
+        'success': True,
+        'data': email_status_list,
+        'pagination': {
+            'page': pagination.page,
+            'per_page': pagination.per_page,
+            'total': pagination.total,
+            'pages': pagination.pages,
+            'has_prev': pagination.has_prev,
+            'has_next': pagination.has_next,
+            'prev_num': pagination.prev_num,
+            'next_num': pagination.next_num
+        }
+    })
+
+
+@admin_bp.route('/api/email-records')
+@requires_auth
+def api_email_records():
+    """API端点：返回邮件记录的分页数据（JSON格式）"""
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 50, type=int)
+    
+    pagination = EmailRecord.query.order_by(
+        EmailRecord.received_time.desc()
+    ).paginate(page=page, per_page=per_page, error_out=False)
+    
+    records = []
+    for record in pagination.items:
+        records.append({
+            'id': record.id,
+            'email': record.email,
+            'sender': record.sender,
+            'subject': record.subject,
+            'subject_short': record.subject[:50] + '...' if len(record.subject) > 50 else record.subject,
+            'received_time': record.received_time.strftime('%Y-%m-%d %H:%M:%S')
+        })
+    
+    return jsonify({
+        'success': True,
+        'data': records,
+        'pagination': {
+            'page': pagination.page,
+            'per_page': pagination.per_page,
+            'total': pagination.total,
+            'pages': pagination.pages,
+            'has_prev': pagination.has_prev,
+            'has_next': pagination.has_next,
+            'prev_num': pagination.prev_num,
+            'next_num': pagination.next_num
+        }
+    })

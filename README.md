@@ -7,7 +7,8 @@
 ```
 OutlookAPI/
 ├── app.py                      # 应用主文件
-├── config.py                   # 配置文件
+├── config.py                   # 配置文件（本地私有，不提交到仓库）
+├── config.example.py           # 配置文件模板
 ├── extensions.py               # Flask扩展初始化
 ├── models.py                   # 数据库模型
 ├── tasks.py                    # 定时任务
@@ -67,18 +68,24 @@ OutlookAPI/
 pip install -r requirements.txt
 ```
 
-### 2. 配置环境变量
+### 2. 复制配置文件并填入私有配置
+```bash
+cp config.example.py config.py
+```
+编辑 `config.py`，填入 `SECRET_KEY`、`BASIC_AUTH_USERNAME`、`BASIC_AUTH_PASSWORD` 等私有配置。
+
+### 3. 配置环境变量
 ```bash
 export FLASK_DEBUG=true
 export PORT=5000
 ```
 
-### 3. 运行应用
+### 4. 运行应用
 ```bash
 python app.py
 ```
 
-### 4. 访问系统
+### 5. 访问系统
 - 主页: http://localhost:5000/
 - 管理面板: http://localhost:5000/admin
 - API文档: http://localhost:5000/api/docs
@@ -130,9 +137,8 @@ GET /api/health
 ## 配置说明
 
 ### Basic Auth认证
-- 默认用户名: admin
-- 默认密码: password123
-- 可在config.py中修改
+- 用户名和密码在 `config.py` 中配置（参考 `config.example.py`）
+- `config.py` 已加入 `.gitignore`，私有配置不会提交到仓库
 
 ### 邮箱文件格式
 支持两种格式：

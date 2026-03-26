@@ -368,3 +368,143 @@ body {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
 }
+
+/* ========== AJAX 分页样式 ========== */
+
+/* 加载动画 */
+.loading-spinner {
+    text-align: center;
+    padding: 40px 0;
+    color: #666;
+}
+
+.loading-spinner .spinner {
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #007bff;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 15px;
+}
+
+.loading-spinner p {
+    font-size: 14px;
+    color: #999;
+}
+
+/* 分页样式 */
+.pagination {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 0;
+    margin-top: 20px;
+    border-top: 1px solid #eee;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.pagination-info {
+    color: #666;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.pagination-controls {
+    display: flex;
+    gap: 5px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.pagination-controls .btn-sm {
+    padding: 6px 12px;
+    font-size: 14px;
+    min-width: 38px;
+    height: 32px;
+    text-align: center;
+    cursor: pointer;
+    border: 1px solid #ddd;
+    background: white;
+    color: #333;
+    transition: all 0.2s ease;
+    border-radius: 4px;
+    font-weight: 500;
+}
+
+.pagination-controls .btn-sm:hover:not(.disabled):not(.active) {
+    background-color: #f8f9fa;
+    border-color: #007bff;
+    color: #007bff;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.15);
+}
+
+.pagination-controls .btn-sm.active {
+    background-color: #007bff;
+    color: white;
+    font-weight: bold;
+    border-color: #007bff;
+    cursor: default;
+    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
+}
+
+.pagination-controls .btn-sm.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+    background-color: #f8f9fa;
+}
+
+.pagination-controls .ellipsis {
+    padding: 6px 8px;
+    color: #999;
+    font-size: 14px;
+    user-select: none;
+}
+
+/* 表格容器过渡效果 */
+#email-list-container {
+    transition: opacity 0.3s ease;
+}
+
+/* Section header for better spacing */
+.section-header {
+    margin-bottom: 20px;
+}
+
+.section-header h3 {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+#email-count-info {
+    font-size: 0.85em;
+    color: #666;
+    font-weight: normal;
+}
+
+/* 响应式设计 - 移动端优化 */
+@media (max-width: 768px) {
+    .pagination {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 15px;
+    }
+    
+    .pagination-info {
+        text-align: center;
+    }
+    
+    .pagination-controls {
+        justify-content: center;
+    }
+    
+    .pagination-controls .btn-sm {
+        padding: 8px 10px;
+        min-width: 32px;
+        font-size: 13px;
+    }
+}
