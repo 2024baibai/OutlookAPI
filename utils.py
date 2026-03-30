@@ -76,8 +76,8 @@ async def refresh_email_token(email_obj):
         if result and result.get('refresh_token'):
             email_obj.refresh_token = result['refresh_token']
             email_obj.access_token = result.get('access_token')
-            if result.get('expires_in'):
-                email_obj.expire_time = datetime.utcnow() + timedelta(seconds=result['expires_in'])
+            # 设置为30天后需要重新刷新（refresh_token 有效期约90天，提前刷新保留余量）
+            email_obj.expire_time = datetime.utcnow() + timedelta(days=30)
             db.session.commit()
             return True
         return False
@@ -103,7 +103,8 @@ def process_email_messages(email, messages):
     results = []
     now = datetime.utcnow()
     one_minute_ago = time.time() - 60*3
-    
+    new_records = []
+
     for msg in messages:
         sender = msg.get('From', '')
         received_time = msg.get('Date', 0)
@@ -114,42 +115,44 @@ def process_email_messages(email, messages):
             if code:
                 # 将时间戳转换为datetime对象
                 received_datetime = datetime.fromtimestamp(received_time) if isinstance(received_time, (int, float)) else now
-                
-                # 保存邮件记录（检查是否已存在）
-                try:
-                    # 先检查是否已存在相同的邮件记录
-                    existing_record = EmailRecord.query.filter_by(
+
+                # 先检查是否已存在相同的邮件记录
+                existing_record = EmailRecord.query.filter_by(
+                    email=email,
+                    subject=msg.get('Subject', ''),
+                    sender=sender,
+                    received_time=received_datetime
+                ).first()
+
+                if not existing_record:
+                    email_record = EmailRecord(
                         email=email,
                         subject=msg.get('Subject', ''),
+                        content=msg.get('content', ''),
                         sender=sender,
                         received_time=received_datetime
-                    ).first()
-                    
-                    if not existing_record:
-                        email_record = EmailRecord(
-                            email=email,
-                            subject=msg.get('Subject', ''),
-                            content=msg.get('content', ''),
-                            sender=sender,
-                            received_time=received_datetime
-                        )
-                        db.session.add(email_record)
-                        db.session.commit()
-                        logger.info(f"保存新邮件记录: {email} - {msg.get('Subject', '')}")
-                    else:
-                        logger.debug(f"邮件记录已存在，跳过保存: {email} - {msg.get('Subject', '')}")
-                        
-                except Exception as e:
-                    db.session.rollback()
-                    logger.warning(f"保存邮件记录失败: {e}")
-                
+                    )
+                    new_records.append(email_record)
+                    logger.info(f"保存新邮件记录: {email} - {msg.get('Subject', '')}")
+                else:
+                    logger.debug(f"邮件记录已存在，跳过保存: {email} - {msg.get('Subject', '')}")
+
                 results.append({
                     'code': code,
                     'sender': sender,
                     'subject': msg.get('Subject', ''),
                     'received_time': received_datetime.isoformat()
                 })
-    
+
+    # 批量提交新邮件记录
+    if new_records:
+        try:
+            db.session.add_all(new_records)
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            logger.warning(f"批量保存邮件记录失败: {e}")
+
     # 返回最新的验证码
     if results:
         return sorted(results, key=lambda x: x['received_time'], reverse=True)[0]

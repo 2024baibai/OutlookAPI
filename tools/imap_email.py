@@ -154,6 +154,15 @@ class OauthEmailReceiver:
         获取最新的一封邮件
         """
         try:
+            # 检测 IMAP 连接是否仍然有效，断开则重连
+            try:
+                self.mail.noop()
+            except Exception:
+                logger.info(f"IMAP连接已断开，尝试重新登录: {self.email}")
+                if not self.login():
+                    logger.error(f"IMAP重新登录失败: {self.email}")
+                    return []
+
             msgs=[]
             #收件箱
             self.mail.select('INBOX')

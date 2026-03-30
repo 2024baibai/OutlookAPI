@@ -65,14 +65,41 @@
     
     <!-- 批量操作 -->
     <div class="batch-actions">
-        <form method="POST" action="{{ url_for('admin.batch_refresh') }}" class="inline-form">
-            <button type="submit" class="btn btn-success">批量刷新过期令牌</button>
-        </form>
+        <button type="button" class="btn btn-success" id="btn-trigger-refresh" onclick="triggerRefresh()">批量刷新过期令牌</button>
         <form method="POST" action="{{ url_for('admin.clear_all') }}" class="inline-form" 
               onsubmit="return confirm('确定清空所有邮箱吗？此操作不可恢复！')">
             <button type="submit" class="btn btn-danger">清空所有邮箱</button>
         </form>
     </div>
+
+    <script>
+    function triggerRefresh() {
+        const btn = document.getElementById('btn-trigger-refresh');
+        btn.disabled = true;
+        btn.textContent = '提交中...';
+
+        fetch('{{ url_for("admin.trigger_refresh") }}', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                btn.textContent = '刷新已在后台运行';
+                alert('刷新任务已在后台启动，请稍后查看日志或刷新页面确认结果。');
+            } else {
+                btn.disabled = false;
+                btn.textContent = '批量刷新过期令牌';
+                alert('提示：' + data.message);
+            }
+        })
+        .catch(err => {
+            btn.disabled = false;
+            btn.textContent = '批量刷新过期令牌';
+            alert('请求失败：' + err);
+        });
+    }
+    </script>
 </div>
 
 <!-- 最近邮件记录 -->

@@ -2,6 +2,7 @@ import asyncio
 from datetime import datetime, timedelta
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from flask import current_app
+from sqlalchemy import or_
 from models import OutlookEmail
 from extensions import db
 from utils import refresh_email_token
@@ -48,9 +49,12 @@ def refresh_expired_tokens():
         app = current_app._get_current_object()
         
         with app.app_context():
-            # 查询过期的邮箱
+            # 查询过期的邮箱（包括 expire_time 为 NULL 的新导入邮箱）
             expired_emails = OutlookEmail.query.filter(
-                OutlookEmail.expire_time <= datetime.utcnow()
+                or_(
+                    OutlookEmail.expire_time == None,
+                    OutlookEmail.expire_time <= datetime.utcnow()
+                )
             ).all()
             
             if not expired_emails:
@@ -65,7 +69,7 @@ def refresh_expired_tokens():
             results = []
             
             # 使用线程池，最大15个并发线程
-            with ThreadPoolExecutor(max_workers=15) as executor:
+            with ThreadPoolExecutor(max_workers=5) as executor:
                 # 提交所有刷新任务
                 future_to_email = {
                     executor.submit(refresh_single_email_async, app, email.id): email 

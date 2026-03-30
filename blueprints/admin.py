@@ -2,6 +2,7 @@ from flask import Blueprint, request, jsonify, render_template, redirect, url_fo
 from models import OutlookEmail, EmailRecord
 from extensions import db
 from utils import requires_auth, parse_email_file, refresh_email_token
+from tasks import refresh_expired_tokens
 import asyncio
 import threading
 from datetime import datetime, timedelta
@@ -344,3 +345,38 @@ def api_email_records():
             'next_num': pagination.next_num
         }
     })
+
+
+# 用于防止重复触发的标志
+_refresh_task_running = False
+_refresh_task_lock = threading.Lock()
+
+@admin_bp.route('/api/trigger_refresh', methods=['POST'])
+@requires_auth
+def trigger_refresh():
+    """后台触发刷新任务，立即返回，不阻塞前端"""
+    global _refresh_task_running
+
+    with _refresh_task_lock:
+        if _refresh_task_running:
+            return jsonify({'success': False, 'message': '刷新任务正在运行中，请稍后再试'}), 409
+
+        _refresh_task_running = True
+
+    app = current_app._get_current_object()
+
+    def run_task():
+        global _refresh_task_running
+        try:
+            with app.app_context():
+                refresh_expired_tokens()
+        except Exception as e:
+            logger.error(f"后台刷新任务异常: {e}")
+        finally:
+            with _refresh_task_lock:
+                _refresh_task_running = False
+
+    t = threading.Thread(target=run_task, daemon=True)
+    t.start()
+
+    return jsonify({'success': True, 'message': '刷新任务已在后台启动'})
