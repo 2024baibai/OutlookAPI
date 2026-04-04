@@ -25,6 +25,7 @@ class OauthEmailReceiver:
         self.passwd=passwd
         self.server='outlook.live.com'
         self.client_id=client_id if client_id else self.client_id
+        self.access_token=None
         
 
     def generate_auth_string(self,user, token):
@@ -41,7 +42,7 @@ class OauthEmailReceiver:
         }
         for _ in range(3):
             try:
-                ret = requests.post('https://login.microsoftonline.com/consumers/oauth2/v2.0/token', data=data)
+                ret = requests.post('https://login.microsoftonline.com/consumers/oauth2/v2.0/token', data=data, timeout=30)
                 # print(ret.text)
                 return ret.json().get('access_token')
             except:
@@ -59,7 +60,7 @@ class OauthEmailReceiver:
         }
         for _ in range(3):
             try:
-                ret = requests.post('https://login.microsoftonline.com/consumers/oauth2/v2.0/token', data=data)
+                ret = requests.post('https://login.microsoftonline.com/consumers/oauth2/v2.0/token', data=data, timeout=30)
                 # print(ret.text)
                 return ret.json().get('access_token')
             except:
@@ -67,19 +68,17 @@ class OauthEmailReceiver:
         return None
 
     def login(self):
-        self.access_token=self.get_accesstoken(self.passwd)
+        if not self.access_token:
+            self.access_token=self.get_accesstoken(self.passwd)
         if not self.access_token:
             return False
         
-        # print(self.access_token,self.generate_auth_string(self.email, self.access_token))
         try:
             self.mail = imaplib.IMAP4_SSL('outlook.live.com')
             self.mail.authenticate('XOAUTH2', lambda x: self.generate_auth_string(self.email, self.access_token))
             return True
         except:
             import traceback
-            # traceback.print_exc()
-            # logger.error(f'登录邮箱[{self.email}]失败:\n{traceback.format_exc()}')
             return False
     
     def tuple_to_str(self,tuple_):
@@ -207,13 +206,15 @@ class OutlookGraphClient:
         self.server='outlook.live.com'
 
         self.client_id=client_id if client_id else self.client_id
+        self.access_token=None
 
         # Clean up the refresh token
         self.refresh_token = self.passwd.replace('$$', '').replace('$', '')
     
     def login(self):
         # Obtain initial access token
-        self.access_token = self._get_access_token()
+        if not self.access_token:
+            self.access_token = self._get_access_token()
         if not self.access_token:
             return False 
         
@@ -242,14 +243,16 @@ class OutlookGraphClient:
         resp=None
         for _ in range(1):
             try:
-                resp = requests.post(self.TOKEN_URL, data=data)
+                resp = requests.post(self.TOKEN_URL, data=data, timeout=30)
                 # print(resp.text)
                 
                 resp.raise_for_status()
                 res=resp.json()
-                self.scope=res['scope']
+                self.scope=res.get('scope', '')
+                if res.get('refresh_token'):
+                    self.refresh_token = res['refresh_token']
                 
-                return resp.json().get('access_token')
+                return res.get('access_token')
             except Exception:
                 if resp is not None:
                     logger.error(f'【{self.email}】 获取邮箱access_token失败:{resp.text}')
@@ -271,7 +274,7 @@ class OutlookGraphClient:
         }
         params = {'$select': 'subject,from,receivedDateTime,body'}
         
-        resp = requests.get(url, headers=headers, params=params)
+        resp = requests.get(url, headers=headers, params=params, timeout=30)
         resp.raise_for_status()
         data = resp.json()
 
@@ -298,7 +301,7 @@ class OutlookGraphClient:
         }
         params = {'$top': num, '$select': 'id,receivedDateTime'}
         try:
-            resp = requests.get(endpoint, headers=headers, params=params)
+            resp = requests.get(endpoint, headers=headers, params=params, timeout=30)
             resp.raise_for_status()
             messages = resp.json().get('value', [])
         except:

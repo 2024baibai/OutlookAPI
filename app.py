@@ -25,6 +25,11 @@ def create_app():
     with app.app_context():
         db.create_all()
     
+    # 每次请求结束后确保 Session 释放连接回池
+    @app.teardown_appcontext
+    def shutdown_session(exception=None):
+        db.session.remove()
+    
     # 配置定时任务
     @scheduler.task('interval', id='refresh_tokens', hours=app.config['REFRESH_INTERVAL_HOURS'])
     def scheduled_refresh_tokens():

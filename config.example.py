@@ -5,6 +5,11 @@ class Config:
     SECRET_KEY = "your-secret-key-here"
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or 'sqlite:///outlook_manager.db'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+    SQLALCHEMY_POOL_SIZE = 10
+    SQLALCHEMY_MAX_OVERFLOW = 20
+    SQLALCHEMY_POOL_RECYCLE = 1800
+    SQLALCHEMY_POOL_PRE_PING = True
+    SQLALCHEMY_POOL_TIMEOUT = 10
     
     # Basic Auth配置
     BASIC_AUTH_USERNAME = 'your-username'

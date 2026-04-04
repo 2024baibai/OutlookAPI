@@ -1,4 +1,3 @@
-import asyncio
 from datetime import datetime, timedelta
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from flask import current_app
@@ -8,21 +7,16 @@ from extensions import db
 from utils import refresh_email_token
 from loguru import logger
 
-def refresh_single_email_async(app, email_id):
-    """异步刷新单个邮箱令牌的函数"""
+def refresh_single_email_sync(app, email_id):
+    """刷新单个邮箱令牌的函数"""
     try:
         with app.app_context():
-            # 在新线程中需要重新查询数据库对象
             email_obj = OutlookEmail.query.get(email_id)
             if not email_obj:
                 return {'email_id': email_id, 'success': False, 'error': '邮箱不存在'}
             
-            # 创建新的事件循环
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            
             try:
-                success = loop.run_until_complete(refresh_email_token(email_obj))
+                success = refresh_email_token(email_obj)
                 return {
                     'email_id': email_id,
                     'email': email_obj.email,
@@ -30,7 +24,7 @@ def refresh_single_email_async(app, email_id):
                     'error': None if success else '刷新失败'
                 }
             finally:
-                loop.close()
+                db.session.remove()
             
     except Exception as e:
         logger.error(f"刷新邮箱令牌失败 {email_id}: {e}")
@@ -72,7 +66,7 @@ def refresh_expired_tokens():
             with ThreadPoolExecutor(max_workers=5) as executor:
                 # 提交所有刷新任务
                 future_to_email = {
-                    executor.submit(refresh_single_email_async, app, email.id): email 
+                    executor.submit(refresh_single_email_sync, app, email.id): email 
                     for email in expired_emails
                 }
                 

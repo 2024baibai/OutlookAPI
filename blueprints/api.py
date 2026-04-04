@@ -2,33 +2,47 @@ from flask import Blueprint, request, jsonify, render_template
 from datetime import datetime, timedelta
 from sqlalchemy import func
 from models import OutlookEmail
+from extensions import db
 from tools.imap_email import OutlookGraphClient
 from utils import process_email_messages
 from loguru import logger
 import time
+import threading
 
 api_bp = Blueprint('api', __name__, url_prefix='/api', template_folder='../templates')
 
 # 客户端缓存字典 {email: {'client': client_instance, 'expire_time': timestamp}}
 client_cache = {}
+_cache_lock = threading.Lock()
+_MAX_CACHE_SIZE = 100
+
+def _close_client(client):
+    """安全关闭客户端的IMAP连接"""
+    try:
+        if client and client.ec and hasattr(client.ec, 'mail'):
+            client.ec.mail.logout()
+    except Exception:
+        pass
 
 def get_cached_client(email, email_obj):
     """获取缓存的客户端或创建新的客户端"""
     current_time = time.time()
     cache_duration = 10 * 60  # 10分钟
     
-    # 检查缓存是否存在且未过期
-    if email in client_cache:
-        cached_data = client_cache[email]
-        if current_time < cached_data['expire_time']:
-            logger.info(f"使用缓存的客户端: {email}")
-            return cached_data['client']
-        else:
-            # 缓存过期，删除
-            logger.info(f"客户端缓存已过期，删除: {email}")
-            del client_cache[email]
+    with _cache_lock:
+        # 检查缓存是否存在且未过期
+        if email in client_cache:
+            cached_data = client_cache[email]
+            if current_time < cached_data['expire_time']:
+                logger.info(f"使用缓存的客户端: {email}")
+                return cached_data['client']
+            else:
+                # 缓存过期，关闭连接并删除
+                logger.info(f"客户端缓存已过期，删除: {email}")
+                _close_client(cached_data['client'])
+                del client_cache[email]
     
-    # 创建新的客户端
+    # 创建新的客户端（在锁外执行网络IO）
     logger.info(f"创建新的客户端: {email}")
     refresh_token = email_obj.refresh_token or email_obj.email_password
     client = OutlookGraphClient(
@@ -37,16 +51,48 @@ def get_cached_client(email, email_obj):
         client_id=email_obj.client_id
     )
     
-    # 尝试登录
+    # 如果DB中有未过期的access_token（created_at当作过期时间），直接复用
+    now = datetime.utcnow()
+    if email_obj.access_token and email_obj.created_at and email_obj.created_at > now:
+        logger.info(f"复用DB中的access_token: {email}")
+        client.access_token = email_obj.access_token
+    
+    # 尝试登录（有access_token时跳过HTTP获取token，只做IMAP连接）
     login_result = client.login()
     if not login_result:
-        return None
+        # access_token可能过期，清除后重试完整登录
+        if client.access_token:
+            logger.info(f"复用access_token登录失败，尝试完整登录: {email}")
+            client.access_token = None
+            login_result = client.login()
+        if not login_result:
+            return None
     
-    # 存储到缓存
-    client_cache[email] = {
-        'client': client,
-        'expire_time': current_time + cache_duration
-    }
+    # 登录成功后，同步更新DB中的token信息
+    try:
+        email_obj.access_token = client.access_token
+        email_obj.created_at = now + timedelta(minutes=55)
+        email_obj.refresh_token = client.refresh_token
+        email_obj.expire_time = now + timedelta(days=30)
+        db.session.commit()
+        logger.info(f"已同步更新token到DB: {email}")
+    except Exception as e:
+        db.session.rollback()
+        logger.warning(f"同步token到DB失败: {email}, {e}")
+    
+    with _cache_lock:
+        # 缓存满时清理最旧的
+        if len(client_cache) >= _MAX_CACHE_SIZE:
+            oldest_email = min(client_cache, key=lambda k: client_cache[k]['expire_time'])
+            _close_client(client_cache[oldest_email]['client'])
+            del client_cache[oldest_email]
+            logger.info(f"缓存已满，清理最旧: {oldest_email}")
+        
+        # 存储到缓存
+        client_cache[email] = {
+            'client': client,
+            'expire_time': current_time + cache_duration
+        }
     
     return client
 
@@ -55,13 +101,15 @@ def clear_expired_cache():
     current_time = time.time()
     expired_emails = []
     
-    for email, cached_data in client_cache.items():
-        if current_time >= cached_data['expire_time']:
-            expired_emails.append(email)
-    
-    for email in expired_emails:
-        del client_cache[email]
-        logger.info(f"清理过期缓存: {email}")
+    with _cache_lock:
+        for email, cached_data in client_cache.items():
+            if current_time >= cached_data['expire_time']:
+                expired_emails.append(email)
+        
+        for email in expired_emails:
+            _close_client(client_cache[email]['client'])
+            del client_cache[email]
+            logger.info(f"清理过期缓存: {email}")
 
 @api_bp.route('/', methods=['GET'])
 def get_verification_code():
@@ -123,6 +171,7 @@ def get_verification_code():
             })
     
     except Exception as e:
+        db.session.rollback()
         logger.error(f"API获取验证码失败: {e}")
         return jsonify({
             'success': False,

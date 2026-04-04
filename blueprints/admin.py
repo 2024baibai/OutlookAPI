@@ -3,8 +3,6 @@ from models import OutlookEmail, EmailRecord
 from extensions import db
 from utils import requires_auth, parse_email_file, refresh_email_token
 from tasks import refresh_expired_tokens
-import asyncio
-import threading
 from datetime import datetime, timedelta
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from loguru import logger
@@ -25,17 +23,12 @@ def refresh_single_email_token(app, email_id):
     """刷新单个邮箱令牌的线程函数"""
     try:
         with app.app_context():
-            # 在新线程中需要重新查询数据库对象
             email = OutlookEmail.query.get(email_id)
             if not email:
                 return {'email_id': email_id, 'success': False, 'error': '邮箱不存在'}
             
-            # 创建新的事件循环
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            
             try:
-                success = loop.run_until_complete(refresh_email_token(email))
+                success = refresh_email_token(email)
                 return {
                     'email_id': email_id,
                     'email': email.email,
@@ -43,7 +36,7 @@ def refresh_single_email_token(app, email_id):
                     'error': None if success else '刷新失败'
                 }
             finally:
-                loop.close()
+                db.session.remove()
             
     except Exception as e:
         logger.error(f"刷新邮箱令牌失败 {email_id}: {e}")
@@ -57,33 +50,11 @@ def refresh_single_email_token(app, email_id):
 @requires_auth
 def index():
     """管理首页"""
-    emails = OutlookEmail.query.order_by(OutlookEmail.created_at.desc()).all()
     email_records = EmailRecord.query.order_by(EmailRecord.received_time.desc()).limit(50).all()
     
-    # 为每个邮箱添加过期状态信息
-    email_status_list = []
-    for email in emails:
-        status = 'unknown'
-        if email.expire_time:
-            now = datetime.utcnow()
-            buffer_time = timedelta(minutes=5)
-            if email.expire_time > now + buffer_time:
-                status = 'valid'
-            elif email.expire_time > now:
-                status = 'expiring_soon'  # 5分钟内过期
-            else:
-                status = 'expired'
-        else:
-            status = 'unknown'
-        
-        email_status_list.append({
-            'email': email,
-            'status': status
-        })
-    
     return render_template('admin/index.html', 
-                          email_status_list=email_status_list,
-                          emails=emails,  # 保持兼容性
+                          email_status_list=[],
+                          emails=[],
                           email_records=email_records)
 
 @admin_bp.route('/upload', methods=['POST'])
@@ -156,10 +127,7 @@ def refresh_token(email_id):
         return redirect(url_for('admin.index'))
     
     try:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        success = loop.run_until_complete(refresh_email_token(email))
-        loop.close()
+        success = refresh_email_token(email)
         
         if success:
             flash(f'成功刷新邮箱 {email.email} 的令牌', 'success')

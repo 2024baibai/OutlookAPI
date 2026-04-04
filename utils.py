@@ -8,7 +8,6 @@ from models import OutlookEmail, EmailRecord
 from extensions import db
 from tools.imap_email import OutlookGraphClient
 from tools.refresh_outlook import do_refresh_token
-import asyncio
 from loguru import logger
 import time 
 
@@ -67,11 +66,11 @@ def parse_email_file(file_content):
     
     return emails
 
-async def refresh_email_token(email_obj):
+def refresh_email_token(email_obj):
     """刷新单个邮箱的令牌"""
     try:
         refresh_token = email_obj.refresh_token or email_obj.email_password
-        result = await do_refresh_token(email_obj.client_id, refresh_token)
+        result = do_refresh_token(email_obj.client_id, refresh_token)
         
         if result and result.get('refresh_token'):
             email_obj.refresh_token = result['refresh_token']
