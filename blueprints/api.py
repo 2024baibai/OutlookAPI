@@ -119,6 +119,7 @@ def get_verification_code():
         clear_expired_cache()
         
         email = request.args.get('email')
+        html_mode = request.args.get('html') == '1'  # 检测 HTML 模式
         
         if not email:
             return jsonify({
@@ -141,6 +142,25 @@ def get_verification_code():
                 'success': False,
                 'message': f'邮箱 {email} 登录失败，请检查令牌是否有效'
             }), 401
+            
+        # ========== HTML 模式：返回原始邮件内容 ==========
+        if html_mode:
+            messages = client.get_last_email(num=30, as_html=True)
+            
+            # 按时间倒序排序（最新的在最前面）
+            messages = sorted(messages, key=lambda x: x.get('Date', 0), reverse=True) if messages else []
+            
+            # 格式化邮件数据供模板使用
+            formatted_messages = []
+            for msg in messages:
+                formatted_messages.append({
+                    'from_addr': msg.get('From', 'Unknown'),
+                    'subject': msg.get('Subject', '(无主题)'),
+                    'date_str': datetime.fromtimestamp(msg.get('Date', 0)).strftime('%Y-%m-%d %H:%M:%S') if msg.get('Date') else 'Unknown',
+                    'content': msg.get('content', '')
+                })
+            
+            return render_template('api/email_list.html', email=email, messages=formatted_messages)
         
         # 获取最近5封邮件
         messages = client.get_last_email(num=5)

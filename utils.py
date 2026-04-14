@@ -97,7 +97,7 @@ def extract_verification_code(msg):
     code = code1 if code1 else code2 if code2 else code3 if code3 else None
     return code[0] if code else None
 
-def process_email_messages(email, messages):
+def process_email_messages(email, messages,as_html=False):
     """处理邮件消息，筛选TikTok邮件并提取验证码"""
     results = []
     now = datetime.utcnow()

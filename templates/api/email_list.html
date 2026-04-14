@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>邮件内容 - {{ email }}</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .email-container { max-width: 1200px; margin: 0 auto; }
+        .header { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .email-item { background: white; margin: 20px 0; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .email-header { border-bottom: 2px solid #eee; padding-bottom: 15px; margin-bottom: 15px; }
+        .email-subject { font-size: 18px; font-weight: bold; color: #333; margin: 10px 0; }
+        .email-meta { color: #666; font-size: 14px; }
+        .email-meta span { display: inline-block; margin-right: 20px; }
+        .email-body { margin-top: 15px; line-height: 1.6; overflow-x: auto; }
+        .email-index { background: #007bff; color: white; padding: 5px 10px; border-radius: 4px; font-weight: bold; }
+        .no-emails { background: white; padding: 40px; border-radius: 8px; text-align: center; color: #666; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .no-emails h2 { color: #999; }
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <div class="header">
+            <h1>邮箱: {{ email }}</h1>
+            <p>共找到 <strong>{{ messages|length }}</strong> 封邮件{% if messages %}（按时间倒序排列）{% endif %}</p>
+        </div>
+        
+        {% if messages %}
+            {% for msg in messages %}
+            <div class="email-item">
+                <div class="email-header">
+                    <span class="email-index">#{{ loop.index }}</span>
+                    <div class="email-subject">{{ msg.subject }}</div>
+                    <div class="email-meta">
+                        <span><strong>发件人:</strong> {{ msg.from_addr }}</span>
+                        <span><strong>收件人:</strong> {{ email }}</span>
+                        <span><strong>时间:</strong> {{ msg.date_str }}</span>
+                    </div>
+                </div>
+                <div class="email-body">
+                    {{ msg.content|safe }}
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="no-emails">
+                <h2>📭 没有找到邮件</h2>
+                <p>该邮箱暂时没有邮件记录</p>
+            </div>
+        {% endif %}
+    </div>
+</body>
+</html>
