@@ -11,7 +11,7 @@ APP_DIR="/home/OutlookAPI"
 PIP="/www/server/panel/pyenv/bin/pip"
 PYTHON="/www/server/panel/pyenv/bin/python"
 GUNICORN="/www/server/panel/pyenv/bin/gunicorn"
-SUPERVISOR_CONF="/etc/supervisor/conf.d/outlookapi.conf"
+SUPERVISOR_CONF="/www/server/panel/plugin/supervisor/profile/outlookapi.ini"
 REPO_URL="https://github.com/2024baibai/OutlookAPI.git"
 IS_UPDATE=false
 
