@@ -64,7 +64,7 @@ if command -v supervisord &> /dev/null; then
     echo "supervisor 已安装，跳过"
 else
     if command -v apt-get &> /dev/null; then
-        apt-get update && apt-get install -y supervisor
+        DEBIAN_FRONTEND=noninteractive apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y -o Dpkg::Options::="--force-confold" supervisor
     elif command -v yum &> /dev/null; then
         yum install -y epel-release && yum install -y supervisor
     else
@@ -104,9 +104,21 @@ stdout_logfile_backups=5
 environment=FLASK_DEBUG="false"
 EOF
 
+    # 重启 supervisord 确保加载新配置
+    systemctl restart supervisord 2>/dev/null || systemctl restart supervisor 2>/dev/null || true
+    sleep 2
     supervisorctl reread
     supervisorctl update
-    supervisorctl start outlookapi 2>/dev/null || true
+    supervisorctl start outlookapi 2>/dev/null || supervisorctl restart outlookapi 2>/dev/null || true
+fi
+
+# 验证服务状态
+sleep 3
+if supervisorctl status outlookapi | grep -q "RUNNING"; then
+    echo -e "${GREEN}服务启动成功！${NC}"
+else
+    echo -e "${RED}服务启动异常，请检查日志: tail -f /var/log/outlookapi/app.log${NC}"
+    supervisorctl status outlookapi
 fi
 
 echo -e "\n${GREEN}========================================${NC}"
