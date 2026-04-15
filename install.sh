@@ -13,15 +13,17 @@ PYTHON="/www/server/panel/pyenv/bin/python"
 GUNICORN="/www/server/panel/pyenv/bin/gunicorn"
 SUPERVISOR_CONF="/etc/supervisor/conf.d/outlookapi.conf"
 REPO_URL="https://github.com/2024baibai/OutlookAPI.git"
+IS_UPDATE=false
 
 echo -e "${GREEN}========================================${NC}"
 echo -e "${GREEN}  OutlookAPI 一键部署脚本${NC}"
 echo -e "${GREEN}========================================${NC}"
 
 # ---- 1. 克隆/更新代码 ----
-echo -e "\n${YELLOW}[1/4] 拉取代码...${NC}"
+echo -e "\n${YELLOW}[1/5] 拉取代码...${NC}"
 if [ -d "$APP_DIR" ]; then
-    echo "目录已存在，拉取最新代码..."
+    IS_UPDATE=true
+    echo "检测到已有安装，拉取最新代码..."
     cd "$APP_DIR"
     git pull
 else
@@ -30,13 +32,34 @@ else
     cd "$APP_DIR"
 fi
 
-# ---- 2. 安装 Python 依赖 ----
-echo -e "\n${YELLOW}[2/4] 安装 Python 依赖...${NC}"
+# ---- 2. 配置文件 ----
+echo -e "\n${YELLOW}[2/5] 检查配置文件...${NC}"
+if [ ! -f "$APP_DIR/config.py" ]; then
+    echo "未检测到 config.py，从模板创建..."
+    cp "$APP_DIR/config.example.py" "$APP_DIR/config.py"
+
+    read -p "请输入管理后台用户名: " AUTH_USERNAME
+    read -p "请输入管理后台密码: " AUTH_PASSWORD
+
+    if [ -z "$AUTH_USERNAME" ] || [ -z "$AUTH_PASSWORD" ]; then
+        echo -e "${RED}用户名和密码不能为空！${NC}"
+        exit 1
+    fi
+
+    sed -i "s/BASIC_AUTH_USERNAME = 'your-username'/BASIC_AUTH_USERNAME = '${AUTH_USERNAME}'/" "$APP_DIR/config.py"
+    sed -i "s/BASIC_AUTH_PASSWORD = 'your-password'/BASIC_AUTH_PASSWORD = '${AUTH_PASSWORD}'/" "$APP_DIR/config.py"
+    echo -e "${GREEN}config.py 配置完成${NC}"
+else
+    echo "config.py 已存在，跳过"
+fi
+
+# ---- 3. 安装 Python 依赖 ----
+echo -e "\n${YELLOW}[3/5] 安装 Python 依赖...${NC}"
 $PIP install -r requirements.txt
 $PIP install gunicorn
 
-# ---- 3. 安装 supervisor ----
-echo -e "\n${YELLOW}[3/4] 安装 supervisor...${NC}"
+# ---- 4. 安装 supervisor ----
+echo -e "\n${YELLOW}[4/5] 安装 supervisor...${NC}"
 if command -v supervisord &> /dev/null; then
     echo "supervisor 已安装，跳过"
 else
@@ -54,13 +77,17 @@ fi
 systemctl enable supervisord 2>/dev/null || systemctl enable supervisor 2>/dev/null || true
 systemctl start supervisord 2>/dev/null || systemctl start supervisor 2>/dev/null || true
 
-# ---- 4. 配置 supervisor ----
-echo -e "\n${YELLOW}[4/4] 配置 supervisor 守护进程...${NC}"
+# ---- 5. 配置并启动服务 ----
+echo -e "\n${YELLOW}[5/5] 配置 supervisor 守护进程...${NC}"
 
 # 创建日志目录
 mkdir -p /var/log/outlookapi
 
-cat > "$SUPERVISOR_CONF" << EOF
+if [ "$IS_UPDATE" = true ] && [ -f "$SUPERVISOR_CONF" ]; then
+    echo "检测到已有 supervisor 配置，直接重启服务..."
+    supervisorctl restart outlookapi
+else
+    cat > "$SUPERVISOR_CONF" << EOF
 [program:outlookapi]
 command=${GUNICORN} -w 2 -b 0.0.0.0:5000 --timeout 120 "app:create_app()"
 directory=${APP_DIR}
@@ -77,10 +104,10 @@ stdout_logfile_backups=5
 environment=FLASK_DEBUG="false"
 EOF
 
-# 重新加载并启动
-supervisorctl reread
-supervisorctl update
-supervisorctl restart outlookapi 2>/dev/null || supervisorctl start outlookapi
+    supervisorctl reread
+    supervisorctl update
+    supervisorctl start outlookapi 2>/dev/null || true
+fi
 
 echo -e "\n${GREEN}========================================${NC}"
 echo -e "${GREEN}  部署完成！${NC}"
